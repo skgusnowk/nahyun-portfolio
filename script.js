@@ -140,3 +140,112 @@ $('#lightbox').addEventListener('click',e=>{if(e.target.id==='lightbox')$('#ligh
 document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#lightbox').classList.add('hidden')});
 show('home');
 })();
+
+/* VFX Filmstrip Navigation Fix */
+(() => {
+  function setupVFXNavigation() {
+    const strip = document.querySelector('.vfx-filmstrip');
+
+    if (!strip || strip.dataset.navigationReady) return;
+    strip.dataset.navigationReady = 'true';
+
+    strip.style.maxWidth = '100%';
+    strip.style.minWidth = '0';
+    strip.style.overflowX = 'auto';
+
+    const cards = [...strip.querySelectorAll('.media-tile')];
+
+    if (!cards.length) return;
+
+    const nav = document.createElement('div');
+
+    nav.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 16px 0;
+    `;
+
+    nav.innerHTML = `
+      <button type="button" class="light-button vfx-prev"
+        aria-label="Previous VFX video">← PREV</button>
+
+      <span class="label vfx-count">01 / 09</span>
+
+      <button type="button" class="light-button vfx-next"
+        aria-label="Next VFX video">NEXT →</button>
+    `;
+
+    strip.insertAdjacentElement('afterend', nav);
+
+    const prev = nav.querySelector('.vfx-prev');
+    const next = nav.querySelector('.vfx-next');
+    const count = nav.querySelector('.vfx-count');
+
+    function move(direction) {
+      const gap = parseFloat(getComputedStyle(strip).gap) || 16;
+      const step = cards[0].getBoundingClientRect().width + gap;
+
+      strip.scrollBy({
+        left: direction * step,
+        behavior: 'smooth'
+      });
+    }
+
+    function update() {
+      const gap = parseFloat(getComputedStyle(strip).gap) || 16;
+      const step = cards[0].getBoundingClientRect().width + gap;
+      const max = strip.scrollWidth - strip.clientWidth;
+
+      const first = Math.min(
+        cards.length,
+        Math.round(strip.scrollLeft / step) + 1
+      );
+
+      count.textContent =
+        String(first).padStart(2, '0') +
+        ' / ' +
+        String(cards.length).padStart(2, '0');
+
+      prev.disabled = strip.scrollLeft <= 2;
+      next.disabled = strip.scrollLeft >= max - 2;
+
+      prev.style.opacity = prev.disabled ? '0.35' : '1';
+      next.style.opacity = next.disabled ? '0.35' : '1';
+    }
+
+    prev.addEventListener('click', () => move(-1));
+    next.addEventListener('click', () => move(1));
+
+    strip.addEventListener('scroll', update, { passive: true });
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (!strip.isConnected) {
+        resizeObserver.disconnect();
+        return;
+      }
+      update();
+    });
+
+    resizeObserver.observe(strip);
+
+    const hint = nav.nextElementSibling;
+
+    if (hint && hint.classList.contains('label')) {
+      hint.textContent =
+        'USE THE ARROWS OR SWIPE TO EXPLORE ALL NINE VIDEOS.';
+    }
+
+    update();
+  }
+
+  const observer = new MutationObserver(setupVFXNavigation);
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+
+  setupVFXNavigation();
+})();
